@@ -1,77 +1,78 @@
 <template>
-  <chat-renderer ref="renderer"
-  :showGiftInfo="config.showGiftInfo"
-  :danmakuAtBottom="config.danmakuAtBottom"
-  :tickerAtButtom="config.tickerAtButtom"
-  :randomXOffset="config.randomXOffset"
-  :randomYOffset="config.randomYOffset"
-  :floatTime="config.floatTime"
-  :mergeSameUserDanmakuInterval="config.mergeSameUserDanmakuInterval"
-  :mergeSameUserDanmaku="config.mergeSameUserDanmaku"
-  :minGiftPrice="config.minGiftPrice"
-  :minTickerPrice="config.minTickerPrice"
-  :maxNumber="config.maxNumber"
-  :fadeOutNum="config.fadeOutNum"
-  :pinTime="config.pinTime"
+  <chat-renderer
+    ref="renderer"
+    :showGiftInfo="config.showGiftInfo"
+    :danmakuAtBottom="config.danmakuAtBottom"
+    :tickerAtButtom="config.tickerAtButtom"
+    :randomXOffset="config.randomXOffset"
+    :randomYOffset="config.randomYOffset"
+    :floatTime="config.floatTime"
+    :mergeSameUserDanmakuInterval="config.mergeSameUserDanmakuInterval"
+    :mergeSameUserDanmaku="config.mergeSameUserDanmaku"
+    :minGiftPrice="config.minGiftPrice"
+    :minTickerPrice="config.minTickerPrice"
+    :maxNumber="config.maxNumber"
+    :fadeOutNum="config.fadeOutNum"
+    :pinTime="config.pinTime"
   >
   </chat-renderer>
 </template>
 
 <script>
-import * as i18n from '@/i18n'
-import { mergeConfig, toBool, toInt, toFloat } from '@/utils'
-import * as trie from '@/utils/trie'
-import * as pronunciation from '@/utils/pronunciation'
-import * as chatConfig from '@/api/chatConfig'
-import ChatClientTest from '@/api/chat/ChatClientTest'
-import ChatClientDirect from '@/api/chat/ChatClientDirect'
-import ChatClientRelay from '@/api/chat/ChatClientRelay'
-import ChatRenderer from '@/components/ChatRenderer'
-import * as constants from '@/components/ChatRenderer/constants'
-import axios from 'axios'
+import * as i18n from "@/i18n"
+import { mergeConfig, toBool, toInt, toFloat } from "@/utils"
+import * as trie from "@/utils/trie"
+import * as pronunciation from "@/utils/pronunciation"
+import * as chatConfig from "@/api/chatConfig"
+import ChatClientTest from "@/api/chat/ChatClientTest"
+import ChatClientDirect from "@/api/chat/ChatClientDirect"
+import ChatClientRelay from "@/api/chat/ChatClientRelay"
+import ChatRenderer from "@/components/ChatRenderer"
+import * as constants from "@/components/ChatRenderer/constants"
+import axios from "axios"
 
 export default {
-  name: 'Room',
+  name: "Room",
   components: {
-    ChatRenderer
+    ChatRenderer,
   },
   props: {
     roomId: {
       type: Number,
-      default: null
+      default: null,
     },
     strConfig: {
       type: Object,
-      default: () => ({})
+      default: () => ({}),
     },
     uidColorMap: {
       type: Object,
-      default: () => ({})
+      default: () => ({}),
     },
   },
   data() {
     return {
       config: chatConfig.deepCloneDefaultConfig(),
       chatClient: null,
-      pronunciationConverter: null
+      pronunciationConverter: null,
     }
   },
   computed: {
     blockKeywordsTrie() {
-      let blockKeywords = this.config.blockKeywords.split('\n')
+      let blockKeywords = this.config.blockKeywords.split("\n")
       let res = new trie.Trie()
       for (let keyword of blockKeywords) {
-        if (keyword !== '') {
+        if (keyword !== "") {
           res.set(keyword, true)
         }
       }
       return res
     },
     blockUsersTrie() {
-      let blockUsers = this.config.blockUsers.split('\n')
+      let blockUsers = this.config.blockUsers.split("\n")
       let res = new trie.Trie()
       for (let user of blockUsers) {
-        if (user !== '') {
+        if (user !== "") {
           res.set(user, true)
         }
       }
@@ -81,7 +82,7 @@ export default {
     emoticonsTrie() {
       let res = new trie.Trie()
       let danmu_emoticons
-      
+
       if (this.config.useLocalEmoticonSetting) {
         // 使用本地json设置
         console.log("使用本地 json 文件设置表情包")
@@ -89,35 +90,41 @@ export default {
       } else {
         // 使用网页设置
         danmu_emoticons = this.config.emoticons
-      } 
+      }
 
       for (let emoticon of danmu_emoticons) {
         // 1个个添加 emoticon
-        if (emoticon.keyword !== '' && emoticon.align !== '' && emoticon.height !== '' && emoticon.url !== '') {
+        if (
+          emoticon.keyword !== ""
+          && emoticon.align !== ""
+          && emoticon.height !== ""
+          && emoticon.url !== ""
+        ) {
           res.set(emoticon.keyword, emoticon)
         }
       }
       return res
-    }
+    },
   },
   mounted() {
     this.initConfig()
     this.initChatClient()
-    if (this.config.giftUsernamePronunciation !== '') {
+    if (this.config.giftUsernamePronunciation !== "") {
       this.pronunciationConverter = new pronunciation.PronunciationConverter()
-      this.pronunciationConverter.loadDict(this.config.giftUsernamePronunciation)
+      this.pronunciationConverter.loadDict(
+        this.config.giftUsernamePronunciation
+      )
     }
     // 在页面刷新缓存时, 读取用户emoticons.json, 并建立表情包库
-    axios.get('/emoticons.json')
-    .then((res) => {
+    axios.get("/emoticons.json").then(res => {
       this.danmu_pic_json = res.data
       // console.log(this.danmu_pic_json)
     })
 
     // 提示用户已加载
     this.$message({
-      message: 'Loaded',
-      duration: '500'
+      message: "Loaded",
+      duration: "500",
     })
   },
   beforeDestroy() {
@@ -135,16 +142,22 @@ export default {
       //* {} 内留空的使用上次预设值
       let cfg = { ...chatConfig.getLocalConfig() }
       for (let i in this.strConfig) {
-        if (this.strConfig[i] !== '') {
+        if (this.strConfig[i] !== "") {
           cfg[i] = this.strConfig[i]
         }
       }
       //* 若上次预设值有留空，则使用默认值
       // cfg = mergeConfig(cfg, chatConfig.DEFAULT_CONFIG)
       cfg = mergeConfig(cfg, chatConfig.deepCloneDefaultConfig())
-  
-      cfg.minGiftPrice = toFloat(cfg.minGiftPrice, chatConfig.DEFAULT_CONFIG.minGiftPrice)
-      cfg.minTickerPrice = toFloat(cfg.minTickerPrice, chatConfig.DEFAULT_CONFIG.minTickerPrice)
+
+      cfg.minGiftPrice = toFloat(
+        cfg.minGiftPrice,
+        chatConfig.DEFAULT_CONFIG.minGiftPrice
+      )
+      cfg.minTickerPrice = toFloat(
+        cfg.minTickerPrice,
+        chatConfig.DEFAULT_CONFIG.minTickerPrice
+      )
 
       cfg.showDanmaku = toBool(cfg.showDanmaku)
       cfg.showSuperchat = toBool(cfg.showSuperchat)
@@ -153,7 +166,9 @@ export default {
       cfg.showGiftInfo = toBool(cfg.showGiftInfo)
 
       cfg.mergeSameUserDanmaku = toBool(cfg.mergeSameUserDanmaku)
-      cfg.mergeSameUserDanmakuInterval = toInt(cfg.mergeSameUserDanmakuInterval)
+      cfg.mergeSameUserDanmakuInterval = toInt(
+        cfg.mergeSameUserDanmakuInterval
+      )
       cfg.mergeSimilarDanmaku = toBool(cfg.mergeSimilarDanmaku)
       cfg.mergeGift = toBool(cfg.mergeGift)
 
@@ -189,27 +204,45 @@ export default {
       cfg.maxEmoji = toInt(cfg.maxEmoji, chatConfig.DEFAULT_CONFIG.maxEmoji)
 
       cfg.maxNumber = toInt(cfg.maxNumber, chatConfig.DEFAULT_CONFIG.maxNumber)
-      cfg.fadeOutNum = toInt(cfg.fadeOutNum, chatConfig.DEFAULT_CONFIG.fadeOutNum)
+      cfg.fadeOutNum = toInt(
+        cfg.fadeOutNum,
+        chatConfig.DEFAULT_CONFIG.fadeOutNum
+      )
       cfg.pinTime = toInt(cfg.pinTime, chatConfig.DEFAULT_CONFIG.pinTime)
-      cfg.imageShowType = toInt(cfg.imageShowType, chatConfig.DEFAULT_CONFIG.imageShowType)
+      cfg.imageShowType = toInt(
+        cfg.imageShowType,
+        chatConfig.DEFAULT_CONFIG.imageShowType
+      )
 
       cfg.blockGiftDanmaku = toBool(cfg.blockGiftDanmaku)
-      cfg.blockLevel = toInt(cfg.blockLevel, chatConfig.DEFAULT_CONFIG.blockLevel)
+      cfg.blockLevel = toInt(
+        cfg.blockLevel,
+        chatConfig.DEFAULT_CONFIG.blockLevel
+      )
       cfg.blockNewbie = toBool(cfg.blockNewbie)
       cfg.blockNotMobileVerified = toBool(cfg.blockNotMobileVerified)
-      cfg.blockMedalLevel = toInt(cfg.blockMedalLevel, chatConfig.DEFAULT_CONFIG.blockMedalLevel)
+      cfg.blockMedalLevel = toInt(
+        cfg.blockMedalLevel,
+        chatConfig.DEFAULT_CONFIG.blockMedalLevel
+      )
 
       cfg.relayMessagesByServer = toBool(cfg.relayMessagesByServer)
       cfg.autoTranslate = toBool(cfg.autoTranslate)
 
-      cfg.minDanmakuInterval = toInt(cfg.minDanmakuInterval, chatConfig.DEFAULT_CONFIG.minDanmakuInterval)
-      cfg.maxDanmakuInterval = toInt(cfg.maxDanmakuInterval, chatConfig.DEFAULT_CONFIG.maxDanmakuInterval)
-      
+      cfg.minDanmakuInterval = toInt(
+        cfg.minDanmakuInterval,
+        chatConfig.DEFAULT_CONFIG.minDanmakuInterval
+      )
+      cfg.maxDanmakuInterval = toInt(
+        cfg.maxDanmakuInterval,
+        chatConfig.DEFAULT_CONFIG.maxDanmakuInterval
+      )
+
       chatConfig.sanitizeConfig(cfg)
       this.config = cfg
     },
     toObjIfJson(str) {
-      if (typeof str !== 'string') {
+      if (typeof str !== "string") {
         return str
       }
       try {
@@ -220,12 +253,18 @@ export default {
     },
     initChatClient() {
       if (this.roomId === null) {
-        this.chatClient = new ChatClientTest(this.config.minDanmakuInterval, this.config.maxDanmakuInterval)
+        this.chatClient = new ChatClientTest(
+          this.config.minDanmakuInterval,
+          this.config.maxDanmakuInterval
+        )
       } else {
         if (!this.config.relayMessagesByServer) {
           this.chatClient = new ChatClientDirect(this.roomId)
         } else {
-          this.chatClient = new ChatClientRelay(this.roomId, this.config.autoTranslate)
+          this.chatClient = new ChatClientRelay(
+            this.roomId,
+            this.config.autoTranslate
+          )
         }
       }
       this.chatClient.onAddText = this.onAddText
@@ -245,9 +284,8 @@ export default {
     },
 
     async onAddText(data) {
-      
       // 匹配 #Hex 的正则表达式
-      let textColor = 'initial'
+      let textColor = "initial"
       if (this.config.allowTextColorSetting) {
         if (constants.UID_COLOR_MAP_REGEX.test(data.content)) {
           this.uidColorMap[data.authorName] = data.content
@@ -269,7 +307,14 @@ export default {
         return
       }
       // 合并同一用户短期内的发言
-      if(await this.mergeSameUserText(data.content, this.getRichContent(data), data.authorName, data.timestamp)) {
+      if (
+        await this.mergeSameUserText(
+          data.content,
+          this.getRichContent(data),
+          data.authorName,
+          data.timestamp
+        )
+      ) {
         // console.log("收到同一个 User 发送的消息")
         // 合并消息，即插入到 Thread 的消息需要单独写平滑（拉了，和原本的平滑方案没有很好的融合）
         this.$refs.renderer.calculateHeight()
@@ -295,8 +340,6 @@ export default {
         }
       }
 
-      
-      
       // 不是同一个user的消息的话，开启新的 thread
       // 拉了，为了减少对 key 的修改
       // 直接把Thread塞到原本的 content 和 richContent
@@ -306,29 +349,49 @@ export default {
       richContentThread[0] = this.getRichContent(data)
       let translationThread = []
       translationThread[0] = data.translation
-      let xOffset = this.config.randomXRangeMin + Math.floor(Math.random() * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1))
-      let yOffset = this.config.randomYRangeMin + Math.floor(Math.random() * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1))
-      
+      let xOffset
+        = this.config.randomXRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1)
+        )
+      let yOffset
+        = this.config.randomYRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1)
+        )
+
       if (this.config.randomXOffset ^ this.config.randomYOffset) {
         if (this.config.randomXOffset) {
           yOffset = this.config.randomYInitialOffset
         } else if (this.config.randomYOffset) {
           xOffset = this.config.randomXInitialOffset
         }
-      } 
+      }
 
-      let floatDistanceX = this.config.floatDistanceXMin + Math.floor(Math.random() * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1))
+      let floatDistanceX
+        = this.config.floatDistanceXMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1)
+        )
       if (Math.abs(floatDistanceX) < this.config.floatDistanceThreshold) {
         if (floatDistanceX < 0) {
-          floatDistanceX = - this.config.floatDistanceThreshold
+          floatDistanceX = -this.config.floatDistanceThreshold
         } else {
           floatDistanceX = this.config.floatDistanceThreshold
         }
       }
-      let floatDistanceY = this.config.floatDistanceYMin + Math.floor(Math.random() * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1))
+      let floatDistanceY
+        = this.config.floatDistanceYMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1)
+        )
       if (Math.abs(floatDistanceY) < this.config.floatDistanceThreshold) {
         if (floatDistanceY < 0) {
-          floatDistanceY = - this.config.floatDistanceThreshold
+          floatDistanceY = -this.config.floatDistanceThreshold
         } else {
           floatDistanceY = this.config.floatDistanceThreshold
         }
@@ -352,14 +415,14 @@ export default {
         medalLevel: data.medalLevel,
         isFanGroup: data.isFanGroup,
         repeated: 1,
-        repeatedThread:[1],
+        repeatedThread: [1],
         threadLength: 1,
         translation: data.translation,
         xOffset: xOffset,
         yOffset: yOffset,
         floatDistanceX: floatDistanceX,
         floatDistanceY: floatDistanceY,
-        textColor: textColor
+        textColor: textColor,
       }
       this.$refs.renderer.addMessage(message)
     },
@@ -372,39 +435,61 @@ export default {
         // console.log("只显示以“"+ this.config.translationSign +"”开头的翻译弹幕")
         return
       }
-      
-      let price = data.coinType == 'gold' ? data.totalCoin / 1000 : 0
-      if (this.mergeSimilarGift(data.authorName, price, data.giftName, data.num)) {
+
+      let price = data.coinType == "gold" ? data.totalCoin / 1000 : 0
+      if (
+        this.mergeSimilarGift(data.authorName, price, data.giftName, data.num)
+      ) {
         return
       }
       // 银瓜子礼物不丢人
       // if (price < this.config.minGiftPrice) {
       //  return
       // }
-      
-      let xOffset = this.config.randomXRangeMin + Math.floor(Math.random() * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1))
-      let yOffset = this.config.randomYRangeMin + Math.floor(Math.random() * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1))
-      
+
+      let xOffset
+        = this.config.randomXRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1)
+        )
+      let yOffset
+        = this.config.randomYRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1)
+        )
+
       if (this.config.randomXOffset ^ this.config.randomYOffset) {
         if (this.config.randomXOffset) {
           yOffset = this.config.randomYInitialOffset
         } else if (this.config.randomYOffset) {
           xOffset = this.config.randomXInitialOffset
         }
-      } 
+      }
 
-      let floatDistanceX = this.config.floatDistanceXMin + Math.floor(Math.random() * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1))
+      let floatDistanceX
+        = this.config.floatDistanceXMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1)
+        )
       if (Math.abs(floatDistanceX) < this.config.floatDistanceThreshold) {
         if (floatDistanceX < 0) {
-          floatDistanceX = - this.config.floatDistanceThreshold
+          floatDistanceX = -this.config.floatDistanceThreshold
         } else {
           floatDistanceX = this.config.floatDistanceThreshold
         }
       }
-      let floatDistanceY = this.config.floatDistanceYMin + Math.floor(Math.random() * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1))
+      let floatDistanceY
+        = this.config.floatDistanceYMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1)
+        )
       if (Math.abs(floatDistanceY) < this.config.floatDistanceThreshold) {
         if (floatDistanceY < 0) {
-          floatDistanceY = - this.config.floatDistanceThreshold
+          floatDistanceY = -this.config.floatDistanceThreshold
         } else {
           floatDistanceY = this.config.floatDistanceThreshold
         }
@@ -442,29 +527,49 @@ export default {
       } else if (data.privilegeType == 3) {
         price = 19998
       }
-      let xOffset = this.config.randomXRangeMin + Math.floor(Math.random() * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1))
-      let yOffset = this.config.randomYRangeMin + Math.floor(Math.random() * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1))
-      
+      let xOffset
+        = this.config.randomXRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1)
+        )
+      let yOffset
+        = this.config.randomYRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1)
+        )
+
       if (this.config.randomXOffset ^ this.config.randomYOffset) {
         if (this.config.randomXOffset) {
           yOffset = this.config.randomYInitialOffset
         } else if (this.config.randomYOffset) {
           xOffset = this.config.randomXInitialOffset
         }
-      } 
+      }
 
-      let floatDistanceX = this.config.floatDistanceXMin + Math.floor(Math.random() * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1))
+      let floatDistanceX
+        = this.config.floatDistanceXMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1)
+        )
       if (Math.abs(floatDistanceX) < this.config.floatDistanceThreshold) {
         if (floatDistanceX < 0) {
-          floatDistanceX = - this.config.floatDistanceThreshold
+          floatDistanceX = -this.config.floatDistanceThreshold
         } else {
           floatDistanceX = this.config.floatDistanceThreshold
         }
       }
-      let floatDistanceY = this.config.floatDistanceYMin + Math.floor(Math.random() * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1))
+      let floatDistanceY
+        = this.config.floatDistanceYMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1)
+        )
       if (Math.abs(floatDistanceY) < this.config.floatDistanceThreshold) {
         if (floatDistanceY < 0) {
-          floatDistanceY = - this.config.floatDistanceThreshold
+          floatDistanceY = -this.config.floatDistanceThreshold
         } else {
           floatDistanceY = this.config.floatDistanceThreshold
         }
@@ -479,7 +584,7 @@ export default {
         authorNamePronunciation: this.getPronunciation(data.authorName),
         privilegeType: data.privilegeType,
         price: price,
-        title: this.$t('chat.membershipTitle'),
+        title: this.$t("chat.membershipTitle"),
         xOffset: xOffset,
         yOffset: yOffset,
         floatDistanceX: floatDistanceX,
@@ -492,7 +597,8 @@ export default {
         // console.log("收到打赏(醒目留言SC)，但显示打赏(醒目留言SC)为" + this.config.showSuperchat)
         return
       }
-      if (data.price < this.config.minGiftPrice) { // 丢人
+      if (data.price < this.config.minGiftPrice) {
+        // 丢人
         // console.log("打赏小于最低打赏金额，不以显示")
         return
       }
@@ -501,29 +607,49 @@ export default {
         return
       }
 
-      let xOffset = this.config.randomXRangeMin + Math.floor(Math.random() * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1))
-      let yOffset = this.config.randomYRangeMin + Math.floor(Math.random() * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1))
-      
+      let xOffset
+        = this.config.randomXRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomXRangeMax - this.config.randomXRangeMin + 1)
+        )
+      let yOffset
+        = this.config.randomYRangeMin
+        + Math.floor(
+          Math.random()
+            * (this.config.randomYRangeMax - this.config.randomYRangeMin + 1)
+        )
+
       if (this.config.randomXOffset ^ this.config.randomYOffset) {
         if (this.config.randomXOffset) {
           yOffset = this.config.randomYInitialOffset
         } else if (this.config.randomYOffset) {
           xOffset = this.config.randomXInitialOffset
         }
-      } 
+      }
 
-      let floatDistanceX = this.config.floatDistanceXMin + Math.floor(Math.random() * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1))
+      let floatDistanceX
+        = this.config.floatDistanceXMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceXMax - this.config.floatDistanceXMin + 1)
+        )
       if (Math.abs(floatDistanceX) < this.config.floatDistanceThreshold) {
         if (floatDistanceX < 0) {
-          floatDistanceX = - this.config.floatDistanceThreshold
+          floatDistanceX = -this.config.floatDistanceThreshold
         } else {
           floatDistanceX = this.config.floatDistanceThreshold
         }
       }
-      let floatDistanceY = this.config.floatDistanceYMin + Math.floor(Math.random() * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1))
+      let floatDistanceY
+        = this.config.floatDistanceYMin
+        + Math.floor(
+          Math.random()
+            * (this.config.floatDistanceYMax - this.config.floatDistanceYMin + 1)
+        )
       if (Math.abs(floatDistanceY) < this.config.floatDistanceThreshold) {
         if (floatDistanceY < 0) {
-          floatDistanceY = - this.config.floatDistanceThreshold
+          floatDistanceY = -this.config.floatDistanceThreshold
         } else {
           floatDistanceY = this.config.floatDistanceThreshold
         }
@@ -554,25 +680,39 @@ export default {
       if (!this.config.autoTranslate) {
         return
       }
-      this.$refs.renderer.updateMessage(data.id, { translation: data.translation })
+      this.$refs.renderer.updateMessage(data.id, {
+        translation: data.translation,
+      })
     },
 
     filterTextMessage(data) {
       if (this.config.blockGiftDanmaku && data.isGiftDanmaku) {
         return false
-      } else if (this.config.blockLevel > 0 && data.authorLevel < this.config.blockLevel) {
+      } else if (
+        this.config.blockLevel > 0
+        && data.authorLevel < this.config.blockLevel
+      ) {
         return false
       } else if (this.config.blockNewbie && data.isNewbie) {
         return false
       } else if (this.config.blockNotMobileVerified && !data.isMobileVerified) {
         return false
-      } else if (this.config.blockMedalLevel > 0 && data.medalLevel < this.config.blockMedalLevel) {
+      } else if (
+        this.config.blockMedalLevel > 0
+        && data.medalLevel < this.config.blockMedalLevel
+      ) {
         return false
       }
-      return this.filterByContent(data.content) && this.filterByAuthorName(data.authorName)
+      return (
+        this.filterByContent(data.content)
+        && this.filterByAuthorName(data.authorName)
+      )
     },
     filterSuperChatMessage(data) {
-      return this.filterByContent(data.content) && this.filterByAuthorName(data.authorName)
+      return (
+        this.filterByContent(data.content)
+        && this.filterByAuthorName(data.authorName)
+      )
     },
     filterNewMemberMessage(data) {
       return this.filterByAuthorName(data.authorName)
@@ -594,7 +734,12 @@ export default {
       if (!this.config.mergeSameUserDanmaku) {
         return false
       }
-      return this.$refs.renderer.mergeSameUserText(content, richContent, authorName, time)
+      return this.$refs.renderer.mergeSameUserText(
+        content,
+        richContent,
+        authorName,
+        time
+      )
     },
     mergeSimilarText(content) {
       if (!this.config.mergeSimilarDanmaku) {
@@ -606,17 +751,22 @@ export default {
       if (!this.config.mergeGift) {
         return false
       }
-      return this.$refs.renderer.mergeSimilarGift(authorName, price, giftName, num)
+      return this.$refs.renderer.mergeSimilarGift(
+        authorName,
+        price,
+        giftName,
+        num
+      )
     },
     getPronunciation(text) {
       if (this.pronunciationConverter === null) {
-        return ''
+        return ""
       }
       return this.pronunciationConverter.getPronunciation(text)
     },
     getRichContent(data) {
       // TODO: 匹配 #Hex 的正则表达式
-      let textColor = 'initial'
+      let textColor = "initial"
       if (this.config.allowTextColorSetting) {
         if (constants.UID_COLOR_MAP_REGEX.test(data.content)) {
           this.uidColorMap[data.authorName] = data.content
@@ -626,8 +776,8 @@ export default {
         }
       }
       let richContent = []
-      
-      if(this.config.imageShowType > 1) {
+
+      if (this.config.imageShowType > 1) {
         this.config.imageShowType = 1
       }
 
@@ -636,29 +786,34 @@ export default {
         richContent.push({
           type: constants.CONTENT_TYPE_TEXT,
           text: data.content,
-          textColor: textColor
+          textColor: textColor,
         })
         return richContent
       }
-      
 
       // B站官方表情
       // 屏蔽官方表情
-      if (data.emoticon !== null && this.config.autoRenderOfficialEmoji === true) {
+      if (
+        data.emoticon !== null
+        && this.config.autoRenderOfficialEmoji === true
+      ) {
         richContent.push({
           type: constants.CONTENT_TYPE_EMOTICON,
           text: data.content,
-          url: data.emoticon
+          url: data.emoticon,
         })
         return richContent
       }
 
       // 没有自定义表情，只能是文本
-      if (this.config.emoticons.length === 0 && this.danmu_pic_json.length === 0) {
+      if (
+        this.config.emoticons.length === 0
+        && this.danmu_pic_json.length === 0
+      ) {
         richContent.push({
           type: constants.CONTENT_TYPE_TEXT,
           text: data.content,
-          textColor: textColor
+          textColor: textColor,
         })
         return richContent
       }
@@ -667,11 +822,11 @@ export default {
       let emoticonsTrie = this.emoticonsTrie
       // 设置B站自带emoji（如 [dog]）
       // 详情看：frontend\src\api\chat\ChatClientDirect\index.js 的 danmuMsgCallback ()
-      if(data.emots !== null) {
-        for(let emotIndex in data.emots) {
+      if (data.emots !== null) {
+        for (let emotIndex in data.emots) {
           let emot = data.emots[emotIndex]
           // console.log("是否存在关键词 " + emot.descript + "————" + emoticonsTrie.has(emot.descript))
-          if(emoticonsTrie.has(emot.descript) === false) {
+          if (emoticonsTrie.has(emot.descript) === false) {
             // console.log("不存在关键词: " + emot.descript)
             let emotValue = {
               type: constants.CONTENT_TYPE_EMOTICON,
@@ -679,10 +834,10 @@ export default {
               align: "inline",
               height: emot.height,
               level: 0,
-              url: emot.url
+              url: emot.url,
             }
             emoticonsTrie.set(emot.descript, emotValue)
-          } 
+          }
         }
       }
 
@@ -695,7 +850,7 @@ export default {
         richContent.push({
           type: constants.CONTENT_TYPE_TEXT,
           text: data.content,
-          textColor: textColor
+          textColor: textColor,
         })
       }
       while (pos < data.content.length) {
@@ -714,11 +869,14 @@ export default {
         }
 
         // 如果是替换文字为图片，则加入之前的文本
-        if (pos !== startPos && this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE) {
+        if (
+          pos !== startPos
+          && this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE
+        ) {
           richContent.push({
             type: constants.CONTENT_TYPE_TEXT,
             text: data.content.slice(startPos, pos),
-            textColor: textColor
+            textColor: textColor,
           })
         }
 
@@ -728,64 +886,81 @@ export default {
 
         // 如果不满足使用权限
         // 或者超过inline, block类型图片各自的上限
-        if ((emoticonLevel > constants.PRIVILEGE_TYPE_ALL && (privilegeType > emoticonLevel || privilegeType === constants.PRIVILEGE_TYPE_ALL))
-          || (matchEmoticon.align === 'inline' && emoticonCount >= this.config.maxEmoji)
-          || (matchEmoticon.align === 'block' && imageCount >= this.config.maxImage)) {
+        if (
+          (emoticonLevel > constants.PRIVILEGE_TYPE_ALL
+            && (privilegeType > emoticonLevel
+              || privilegeType === constants.PRIVILEGE_TYPE_ALL))
+          || (matchEmoticon.align === "inline"
+            && emoticonCount >= this.config.maxEmoji)
+          || (matchEmoticon.align === "block"
+            && imageCount >= this.config.maxImage)
+        ) {
           // 如果是替换文字为图片才需要添加文字
           if (this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE) {
             richContent.push({
               type: constants.CONTENT_TYPE_TEXT,
               text: matchEmoticon.keyword,
-              textColor: textColor
+              textColor: textColor,
             })
           }
-        } else { // 如果没有
-          
+        } else {
+          // 如果没有
+
           // 如果没有开启【不多次显示重复图片】或者说【当前图片没出现过】
-          if(this.config.isSkipSameImage === false || emoticonMap[matchEmoticon.url] === undefined) {
-            emoticonMap[matchEmoticon.url] = true; // 将出现过的图片记录到 map
+          if (
+            this.config.isSkipSameImage === false
+            || emoticonMap[matchEmoticon.url] === undefined
+          ) {
+            emoticonMap[matchEmoticon.url] = true // 将出现过的图片记录到 map
             // 记录图片数量，对应inline, block类型
-            if (matchEmoticon.align === 'inline') {
+            if (matchEmoticon.align === "inline") {
               emoticonCount++
             } else {
               imageCount++
             }
             // 添加图片到消息内容
-            let emot_type = matchEmoticon.type === constants.CONTENT_TYPE_EMOTICON ? constants.CONTENT_TYPE_EMOTICON : constants.CONTENT_TYPE_IMAGE
-         
+            let emot_type
+              = matchEmoticon.type === constants.CONTENT_TYPE_EMOTICON
+                ? constants.CONTENT_TYPE_EMOTICON
+                : constants.CONTENT_TYPE_IMAGE
+
             richContent.push({
               type: emot_type,
               text: matchEmoticon.keyword,
               align: matchEmoticon.align,
               height: matchEmoticon.height,
               level: matchEmoticon.level,
-              url: matchEmoticon.url
+              url: matchEmoticon.url,
             })
           } else {
             // 只有替换文字为表情包的模式需要添加文字，否则直接跳过
-            if(this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE) {
+            if (
+              this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE
+            ) {
               richContent.push({
                 type: constants.CONTENT_TYPE_TEXT,
                 text: matchEmoticon.keyword,
-                textColor: textColor
-             })
+                textColor: textColor,
+              })
             } // end if
           } // end else
-
         } // end else
         pos += matchEmoticon.keyword.length
         startPos = pos
       } // end while
       // 如果是替换文字为表情包，则加入尾部的文本
-      if (pos !== startPos && this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE) {
+      if (
+        pos !== startPos
+        && this.config.imageShowType === constants.IMAGE_SHOW_TYPE_REPLACE
+      ) {
         richContent.push({
           type: constants.CONTENT_TYPE_TEXT,
           text: data.content.slice(startPos, pos),
-          textColor: textColor
+          textColor: textColor,
         })
       }
       return richContent
-    }
-  }
+    },
+  },
 }
 </script>
